@@ -28,19 +28,14 @@ class Connection(torch.nn.Module):
         return self.source.x @ self.W
 
     def compute_feedback(self):
-        return self.gamma * self.target.x @ self.W.transpose(0, 1)
+        # return self.gamma * self.target.x @ self.W.transpose(0, 1)
+        # above had some sort of error with adding an extra dimension ...
+        return self.gamma * (self.target.x @ self.W.transpose(0, 1)).view(self.source.x.shape)
 
     def update(self):
-        # self.W += (
-        #         (self.mu * self.gamma) * (
-        #          (self.pre_clamp.transpose(0, 1) @ self.post_clamp) -
-        #          (self.pre_free.transpose(0, 1) @ self.post_free))
-        # )
-        self.W += (
-            (self.mu * self.gamma) * (
-             (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
-             (self.post_free * self.pre_free.transpose(0, 1)))
-        )
+        self.W += ((self.mu * self.gamma) * (
+                (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
+                (self.post_free * self.pre_free.transpose(0, 1)))).view(self.W.shape)
 
     def end_plus(self):
         self.pre_clamp = self.source.x.clone()
@@ -79,14 +74,15 @@ class RandomConnection(torch.nn.Module):
         return self.source.x @ self.W
 
     def compute_feedback(self):
-        return self.gamma * self.target.x @ self.G
+        # return self.gamma * self.target.x @ self.G
+        return self.gamma * (self.target.x @ self.G).view(self.source.x.shape)
 
     def update(self):
         self.W += (
-            (self.mu * self.gamma) * (
-             (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
-             (self.post_free * self.pre_free.transpose(0, 1)))
-        )
+                (self.mu * self.gamma) * (
+                (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
+                (self.post_free * self.pre_free.transpose(0, 1)))
+        ).view(self.W.shape)
 
     def end_plus(self):
         self.pre_clamp = self.source.x.clone()
