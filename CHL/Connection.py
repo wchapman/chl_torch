@@ -5,8 +5,8 @@ class Connection(torch.nn.Module):
     def __init__(self,
                  source,
                  target,
-                 mu=0.01,  # learning rate
-                 gamma=0.5):  # feedback gain
+                 mu=0.1,  # learning rate
+                 gamma=0.05):  # feedback gain
         super().__init__()
 
         self.source = source
@@ -14,44 +14,36 @@ class Connection(torch.nn.Module):
         self.mu = mu
         self.gamma = gamma
 
-        self.W = torch.randn(self.source.n, self.target.n)  # normal(0,1)
-
-        self.pre_clamp = None
-        self.post_clamp = None
-        self.pre_free = None
-        self.post_free = None
+        self.W = torch.rand(self.target.n, self.source.n) - 0.5
 
         self.source.outputs.append(self)
         self.target.inputs.append(self)
 
     def compute_forward(self):
-        return self.source.x @ self.W
+        return self.source.x @ self.W.t()
 
     def compute_feedback(self):
-        # return self.gamma * self.target.x @ self.W.transpose(0, 1)
-        # above had some sort of error with adding an extra dimension ...
-        return self.gamma * (self.target.x @ self.W.transpose(0, 1)).view(self.source.x.shape)
+        return self.gamma * (self.target.x @ self.W)
 
     def update(self):
-        self.W += ((self.mu * self.gamma) * (
-                (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
-                (self.post_free * self.pre_free.transpose(0, 1)))).view(self.W.shape)
+        if self.training:
+            t0 = self.mu * self.gamma
+            t1 = self.target.plus.transpose(1, 2) @ self.source.plus
+            t2 = self.target.minus.transpose(1, 2) @ self.source.minus
+            self.W += t0 * (t1 - t2).mean(0)
+        else:
+            pass
 
-    def end_plus(self):
-        self.pre_clamp = self.source.x.clone()
-        self.post_clamp = self.target.x.clone()
-
-    def end_minus(self):
-        self.pre_free = self.source.x.clone()
-        self.post_free = self.target.x.clone()
+    def train(self, mode=True):
+        return super().train(mode)
 
 
 class RandomConnection(torch.nn.Module):
     def __init__(self,
                  source,
                  target,
-                 mu=0.05,  # learning rate
-                 gamma=0.5):  # feedback gain
+                 mu=0.01,  # learning rate
+                 gamma=0.1):  # feedback gain
         super().__init__()
 
         self.source = source
@@ -59,35 +51,27 @@ class RandomConnection(torch.nn.Module):
         self.mu = mu
         self.gamma = gamma
 
-        self.W = torch.randn(self.source.n, self.target.n)  # normal(0,1)
-        self.G = torch.randn(self.target.n, self.source.n)  # seperate normal(0,1) for feedback
-
-        self.pre_clamp = None
-        self.post_clamp = None
-        self.pre_free = None
-        self.post_free = None
+        self.W = torch.randn(self.target.n, self.source.n)
+        self.G = torch.randn(self.source.n, self.target.n)
 
         self.source.outputs.append(self)
         self.target.inputs.append(self)
 
     def compute_forward(self):
-        return self.source.x @ self.W
+        return self.source.x @ self.W.t()
 
     def compute_feedback(self):
-        # return self.gamma * self.target.x @ self.G
-        return self.gamma * (self.target.x @ self.G).view(self.source.x.shape)
+        return self.gamma * (self.target.x @ self.G.t())
 
     def update(self):
-        self.W += (
-                (self.mu * self.gamma) * (
-                (self.post_clamp * self.pre_clamp.transpose(0, 1)) -
-                (self.post_free * self.pre_free.transpose(0, 1)))
-        ).view(self.W.shape)
+        if self.training:
+            t0 = self.mu * self.gamma
+            t1 = self.target.plus.transpose(1, 2) @ self.source.plus
+            t2 = self.target.minus.transpose(1, 2) @ self.source.minus
+            self.W += t0 * (t1 - t2).mean(0)
+        else:
+            pass
 
-    def end_plus(self):
-        self.pre_clamp = self.source.x.clone()
-        self.post_clamp = self.target.x.clone()
+    def train(self, mode=True):
+        return super().train(mode)
 
-    def end_minus(self):
-        self.pre_free = self.source.x.clone()
-        self.post_free = self.target.x.clone()
