@@ -20,8 +20,6 @@ else:
     device = "cpu"
     torch.set_default_dtype(torch.double)
 
-backprop = False
-
 
 # %%
 bs = 1000
@@ -51,96 +49,18 @@ data_test_iter = iter(data_test_loader)
 num_epochs = 500
 
 
-# %% Backprop approach
-# class SimpleRelu(torch.nn.Module):
-#     def __init__(self):
-#         super(SimpleRelu, self).__init__()
-#
-#         self.inp = torch.nn.Linear(784, 128)
-#         self.h1 = torch.nn.Linear(128, 64)
-#         self.out = torch.nn.Linear(64, 10)
-#
-#     def forward(self, x):
-#         x = relu(self.inp(x))
-#         x = relu(self.h1(x))
-#         x = self.out(x)
-#         x = F.log_softmax(x, dim=1)
-#
-#         return x
-#
-#
-# # %% Train backprop
-# model = SimpleRelu()
-# criterion = torch.nn.NLLLoss()
-# optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
-# err_train = np.zeros(num_epochs)
-# err_test = np.zeros(num_epochs)
-# n_train = np.zeros(num_epochs)
-# n_test = np.zeros(num_epochs)
-#
-# t = trange(num_epochs)
-#
-#
-# if backprop:
-#     for epoch in t:
-#
-#         # test before training
-#         model.train(False)
-#         loss_e = 0
-#
-#         for dat, label in data_test_loader:
-#             dat = dat.double().to(device)
-#
-#             pred = model(dat.flatten(1))
-#
-#             loss = criterion(pred, label.long())
-#             loss_e += loss.detach().cpu().numpy()
-#
-#             n_test[epoch] += (pred.max(1)[1] == label).sum()
-#
-#         err_test[epoch] = loss_e
-#
-#         # train
-#         model.train(True)
-#         for dat, label in data_train_loader:
-#             dat = dat.double().to(device)
-#
-#             pred = model(dat.flatten(1))
-#
-#             loss = criterion(pred, label.long())
-#             loss_e += loss.detach().cpu().numpy()
-#             n_train[epoch] += (pred.max(1)[1] == label).sum()
-#
-#             optimizer.zero_grad()
-#             loss.backward()
-#             optimizer.step()
-#
-#         err_train[epoch] = loss_e
-#
-#         k = {'err_test': err_test[epoch] / data_test.__len__(),
-#              'err_train': err_train[epoch] / data_train.__len__(),
-#              'acc_test': n_test[epoch] / data_test.__len__(),
-#              'acc_train': n_train[epoch] / data_train.__len__()}
-#         t.set_postfix(k)
-#
-#
-#     err_test = np.asarray(err_test)
-#     err_train = np.asarray(err_train)
-#
-#     plt.plot(n_test / data_test.__len__(), label='test')
-#     plt.plot(n_train / data_train.__len__(), label='train')
-#     plt.legend()
-
 # %% Rate-based CHL Approach
 layers = {
     'inp': Layer(784, name='inp'),
     'h1': Layer(128, name='h1'),
+    'h2': Layer(64, name='h2'),
     'out': Layer(10, name='out')
 }
 
 conns = {
-    'inp_h1': Connection(layers['inp'], layers['h1'], gamma=0.01),
-    'h1_out': Connection(layers['h1'], layers['out'], gamma=0.05)
+    'inp_h1': RandomConnection(layers['inp'], layers['h1'], gain=2.),
+    'inp_h2': RandomConnection(layers['h1'], layers['h2'], gain=1.),
+    'h1_out': RandomConnection(layers['h1'], layers['out'], gain=0.)
 }
 
 model_chl = Network(layers=layers, connections=conns, batch_size=bs)
@@ -212,16 +132,16 @@ for epoch in t:
     t.set_postfix(k)
 
 # # %%
-# plt.plot(100 * n_test / data_test.__len__(), label='test')
-# plt.plot(100 * n_train / data_train.__len__(), label='train')
-# plt.legend()
-# plt.show()
-#
-# plt.figure()
-# plt.plot(100 * err_test / data_test.__len__(), label='test')
-# plt.plot(100 * err_train / data_train.__len__(), label='train')
-# plt.show()
-#
+plt.plot(100 * n_test / data_test.__len__(), label='test')
+plt.plot(100 * n_train / data_train.__len__(), label='train')
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.plot(100 * err_test / data_test.__len__(), label='test')
+plt.plot(100 * err_train / data_train.__len__(), label='train')
+plt.show()
+
 # # %%
 # bs = 100
 # bst = 100
@@ -274,7 +194,7 @@ for epoch in t:
 #     n+=1
 #
 # # %%
-# preds_bin = torch.zeros_like(preds)
+# preds_bin = torch.zeros_like(preds).cpu()
 # for i in range(0, preds.shape[0]):
 #     preds_bin[i, preds[i,:].max(0)[1]] = 1
 #
@@ -283,7 +203,7 @@ for epoch in t:
 # plt.imshow(preds_bin[0:50])
 #
 # plt.subplot(122)
-# plt.imshow(outs[0:50])
+# plt.imshow(outs[0:50].cpu())
 #
 # acc_train = (preds.max(1)[1] == outs.max(1)[1]).sum().float() / data_train.__len__()
 # print(str(acc_train))

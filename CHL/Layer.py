@@ -4,11 +4,16 @@ from torch import sigmoid, tanh
 
 
 class Layer(torch.nn.Module):
-    def __init__(self, n, f=torch.sigmoid, name='None'):
+    def __init__(self, n, b=None, f=torch.sigmoid, name='None'):
         super().__init__()
         self.n = n
         self.x = torch.zeros(1, 1, n)
-        self.b = torch.zeros(1,1,n)#torch.rand(1, 1, n)-0.5
+
+        if b is None:
+            self.b = torch.zeros(1, 1, n)
+        else:
+            self.b = b
+
         self.f = f
 
         self.batch_size = 1

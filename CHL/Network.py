@@ -18,12 +18,13 @@ class Network(torch.nn.Module):
         self.batch_size = 1
         self.set_batch(batch_size)
 
-        self.settle_time_plus = 50
-        self.settle_time_minus = 50
+        self.settle_time_plus = 25
+        self.settle_time_minus = 25
 
     def trial(self, stims):
         self.reset()
         self.minus(stims)
+        self.reset()
         self.plus(stims)
 
         # update weights:

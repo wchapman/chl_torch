@@ -5,14 +5,16 @@ class Connection(torch.nn.Module):
     def __init__(self,
                  source,
                  target,
-                 mu=0.1,  # learning rate
-                 gamma=0.05):  # feedback gain
+                 mu=0.1,      # learning rate
+                 gamma=0.05,  # feedback gain
+                 gain=0):     # Gain for learning in this connection (gamma ** (k-L))
         super().__init__()
 
         self.source = source
         self.target = target
         self.mu = mu
         self.gamma = gamma
+        self.gain = gain
 
         self.W = torch.rand(self.target.n, self.source.n) - 0.5
 
@@ -27,7 +29,7 @@ class Connection(torch.nn.Module):
 
     def update(self):
         if self.training:
-            t0 = self.mu * self.gamma
+            t0 = self.mu * (self.gamma ** -self.gain)
             t1 = self.target.plus.transpose(1, 2) @ self.source.plus
             t2 = self.target.minus.transpose(1, 2) @ self.source.minus
             self.W += t0 * (t1 - t2).mean(0)
@@ -43,13 +45,15 @@ class RandomConnection(torch.nn.Module):
                  source,
                  target,
                  mu=0.01,  # learning rate
-                 gamma=0.1):  # feedback gain
+                 gamma=0.05,  # feedback gain
+                 gain=0):
         super().__init__()
 
         self.source = source
         self.target = target
         self.mu = mu
         self.gamma = gamma
+        self.gain = gain
 
         self.W = torch.randn(self.target.n, self.source.n)
         self.G = torch.randn(self.source.n, self.target.n)
@@ -65,7 +69,7 @@ class RandomConnection(torch.nn.Module):
 
     def update(self):
         if self.training:
-            t0 = self.mu * self.gamma
+            t0 = self.mu * (self.gamma ** -self.gain)
             t1 = self.target.plus.transpose(1, 2) @ self.source.plus
             t2 = self.target.minus.transpose(1, 2) @ self.source.minus
             self.W += t0 * (t1 - t2).mean(0)
